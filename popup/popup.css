@@ -1,0 +1,9 @@
+#recorder-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.recording-timer-container {
+  margin-top: 12px;
+  text-align: center;
+}
