@@ -36551,19 +36551,19 @@ fileInput.addEventListener("change", (event) => {
 });
 
 // Listen for recordings from chrome storage
-chrome.storage.local.get(["recordedEvents"], (result) => {
-  if (result.recordedEvents && result.recordedEvents.length > 0) {
-    console.log("Found recorded events in storage:", result.recordedEvents);
+chrome.storage.local.get(["recordings"], (result) => {
+  if (result.recordings && Object.keys(result.recordings).length > 0) {
+    console.log("Found recorded events in storage:", result.recordings);
 
     // Auto-load if events exist
-    player = new rrwebPlayer({
-      target: playerContainer,
-      props: {
-        events: result.recordedEvents,
-        autoPlay: false,
-        width: 1024,
-        height: 576,
-      },
-    });
+    // player = new rrwebPlayer({
+    //   target: playerContainer,
+    //   props: {
+    //     events: result.recordings,
+    //     autoPlay: false,
+    //     width: 1024,
+    //     height: 576,
+    //   },
+    // });
   }
 });
