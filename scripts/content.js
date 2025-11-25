@@ -12,4 +12,19 @@ window.addEventListener("message", (msg) => {
       event: msg.data.event,
     });
   }
+
+  // Handle stop recording and save events
+  if (msg.data?.source === "rrweb-stop") {
+    const events = msg.data.events;
+    console.log("Saving events to storage:", events.length);
+    
+    chrome.storage.local.set({ recordedEvents: events }, () => {
+      console.log("Events saved successfully");
+      // Optionally notify the user
+      chrome.runtime.sendMessage({
+        type: "recording-saved",
+        eventCount: events.length,
+      });
+    });
+  }
 });

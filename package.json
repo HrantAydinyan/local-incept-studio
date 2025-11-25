@@ -16,6 +16,7 @@
     "vite": "^7.2.4"
   },
   "dependencies": {
-    "rrweb": "^2.0.0-alpha.4"
+    "rrweb": "^2.0.0-alpha.4",
+    "rrweb-player": "^1.0.0-alpha.4"
   }
 }

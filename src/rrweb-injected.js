@@ -23,7 +23,7 @@ function startRecord() {
   stopFn = record({
     emit: (event) => {
       // console.log("aaaaaaaaaa", event);
-      events.push(event.data);
+      events.push(event);
       //   window.post Message({ source: "rrweb-record", event }, "*");
     },
     ...formConfig,
@@ -45,14 +45,19 @@ const messageHandler = (event) => {
         try {
           console.log("stop Recording", events);
           stopFn();
+          // Send events to content script to save
+          window.postMessage(
+            {
+              source: "rrweb-stop",
+              events: events,
+            },
+            "*"
+          );
+          events = []; // Clear events after sending
         } catch (e) {
           //
         }
       }
-      //   postMessage({
-      //     message: MessageName.RecordStopped,
-      //     endTimestamp: Date.now(),
-      //   });
       window.removeEventListener("message", messageHandler);
     },
   };

@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Recording Player - Incept Studio</title>
+    <link rel="stylesheet" href="./player.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Recording Player</h1>
+      <div class="controls">
+        <button id="load-recording">Load Recording</button>
+        <input
+          type="file"
+          id="file-input"
+          accept=".json"
+          style="display: none"
+        />
+      </div>
+      <div id="player-container"></div>
+    </div>
+    <script type="module" src="./player.js"></script>
+  </body>
+</html>

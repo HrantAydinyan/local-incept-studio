@@ -12,6 +12,8 @@ export default defineConfig({
       input: {
         popup: resolve(__dirname, "popup/popup.html"),
         popupJs: resolve(__dirname, "popup/popup.js"),
+        player: resolve(__dirname, "player/player.html"),
+        playerJs: resolve(__dirname, "player/player.js"),
         background: resolve(__dirname, "background.js"),
         content: resolve(__dirname, "scripts/content.js"),
       },
@@ -27,6 +29,9 @@ export default defineConfig({
           if (chunkInfo.name === "popupJs") {
             return "popup/popup.js";
           }
+          if (chunkInfo.name === "playerJs") {
+            return "player/player.js";
+          }
           return "[name].js";
         },
         chunkFileNames: "chunks/[name]-[hash].js",
@@ -34,6 +39,10 @@ export default defineConfig({
           // Keep popup files in popup directory
           if (assetInfo.name && assetInfo.name.includes("popup")) {
             return "popup/[name].[ext]";
+          }
+          // Keep player files in player directory
+          if (assetInfo.name && assetInfo.name.includes("player")) {
+            return "player/[name].[ext]";
           }
           return "[name].[ext]";
         },
@@ -72,6 +81,5 @@ export default defineConfig({
         }
       },
     },
-
   ],
 });

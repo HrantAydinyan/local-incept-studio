@@ -1,5 +1,6 @@
 const startButton = document.getElementById("start-recording");
 const stopButton = document.getElementById("stop-recording");
+const openPlayerButton = document.getElementById("open-player");
 const recordingTimer = document.getElementById("recording-timer");
 
 let interval = null;
@@ -51,6 +52,12 @@ stopButton.addEventListener("click", () => {
         window.postMessage({ type: "stop-recording" }, "*");
       },
     });
+  });
+});
+
+openPlayerButton.addEventListener("click", () => {
+  chrome.tabs.create({
+    url: chrome.runtime.getURL("player/player.html"),
   });
 });
 
