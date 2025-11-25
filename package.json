@@ -1,11 +1,12 @@
 {
   "name": "incept-studio",
   "version": "1.0.0",
+  "type": "module",
   "description": "",
   "main": "background.js",
   "scripts": {
     "dev": "vite build --watch",
-    "build": "vite build",
+    "build": "vite build && vite build --config vite.config.injected.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

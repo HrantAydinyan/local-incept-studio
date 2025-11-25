@@ -36,3 +36,7 @@ stopButton.addEventListener("click", () => {
   console.log("Recording stopped");
   stopTimer(interval);
 });
+
+chrome.storage.local.get(["rrweb_events"], ({ rrweb_events }) => {
+  console.log("Events:", rrweb_events);
+});

@@ -19,5 +19,11 @@
     "32": "images/recorder.png",
     "48": "images/recorder.png",
     "128": "images/recorder.png"
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["src/rrweb-injected.js"],
+      "matches": ["<all_urls>"]
+    }
+  ]
 }

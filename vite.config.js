@@ -1,6 +1,10 @@
 import { defineConfig } from "vite";
-import { resolve } from "path";
-import { copyFileSync, mkdirSync, existsSync } from "fs";
+import { resolve, dirname } from "path";
+import { copyFileSync, mkdirSync, existsSync, readdirSync } from "fs";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export default defineConfig({
   build: {
@@ -58,8 +62,7 @@ export default defineConfig({
             mkdirSync(distImagesDir, { recursive: true });
           }
 
-          const fs = require("fs");
-          const files = fs.readdirSync(imagesDir);
+          const files = readdirSync(imagesDir);
           files.forEach((file) => {
             copyFileSync(
               resolve(imagesDir, file),
@@ -69,5 +72,6 @@ export default defineConfig({
         }
       },
     },
+
   ],
 });
