@@ -36576,13 +36576,13 @@ function playRecording(events) {
   });
 }
 
-function deleteRecording(tabId) {
-  if (confirm(`Delete recording for tab ${tabId}?`)) {
+function deleteRecording(recordingId) {
+  if (confirm(`Delete this recording?`)) {
     chrome.storage.local.get(["recordings"], (result) => {
       const recordings = result.recordings || {};
-      delete recordings[tabId];
+      delete recordings[recordingId];
       chrome.storage.local.set({ recordings }, () => {
-        console.log(`Recording for tab ${tabId} deleted`);
+        console.log(`Recording ${recordingId} deleted`);
         loadRecordingsTable();
         if (player) {
           playerContainer.innerHTML = "";
@@ -36595,12 +36595,12 @@ function deleteRecording(tabId) {
 function loadRecordingsTable() {
   chrome.storage.local.get(["recordings"], (result) => {
     currentRecordings = result.recordings || {};
-    const tabIds = Object.keys(currentRecordings);
+    const recordingIds = Object.keys(currentRecordings);
 
     // Clear table
     recordingsTbody.innerHTML = "";
 
-    if (tabIds.length === 0) {
+    if (recordingIds.length === 0) {
       noRecordings.style.display = "block";
       recordingsTable.style.display = "none";
     } else {
@@ -36608,24 +36608,26 @@ function loadRecordingsTable() {
       recordingsTable.style.display = "table";
 
       // Sort by timestamp (newest first)
-      tabIds.sort((a, b) => {
+      recordingIds.sort((a, b) => {
         return currentRecordings[b].timestamp - currentRecordings[a].timestamp;
       });
 
       // Populate table
-      tabIds.forEach((tabId) => {
-        const recording = currentRecordings[tabId];
+      recordingIds.forEach((recordingId) => {
+        const recording = currentRecordings[recordingId];
         const row = document.createElement("tr");
 
         row.innerHTML = `
-          <td>${tabId}</td>
+          <td>${recording.tabId || "N/A"}</td>
           <td>${recording.title || "Untitled"}</td>
-          <td class="url-cell" title="${recording.url}">${recording.url || "N/A"}</td>
+          <td class="url-cell" title="${recording.url}">${
+          recording.url || "N/A"
+        }</td>
           <td>${recording.events.length}</td>
           <td>${formatDate(recording.timestamp)}</td>
           <td>
-            <button class="play-btn" data-tab-id="${tabId}">Play</button>
-            <button class="delete-btn" data-tab-id="${tabId}">Delete</button>
+            <button class="play-btn" data-recording-id="${recordingId}">Play</button>
+            <button class="delete-btn" data-recording-id="${recordingId}">Delete</button>
           </td>
         `;
 
@@ -36635,8 +36637,8 @@ function loadRecordingsTable() {
       // Add event listeners to play buttons
       document.querySelectorAll(".play-btn").forEach((btn) => {
         btn.addEventListener("click", (e) => {
-          const tabId = e.target.dataset.tabId;
-          const recording = currentRecordings[tabId];
+          const recordingId = e.target.dataset.recordingId;
+          const recording = currentRecordings[recordingId];
           if (recording && recording.events) {
             playRecording(recording.events);
           }
@@ -36646,8 +36648,8 @@ function loadRecordingsTable() {
       // Add event listeners to delete buttons
       document.querySelectorAll(".delete-btn").forEach((btn) => {
         btn.addEventListener("click", (e) => {
-          const tabId = e.target.dataset.tabId;
-          deleteRecording(tabId);
+          const recordingId = e.target.dataset.recordingId;
+          deleteRecording(recordingId);
         });
       });
     }
