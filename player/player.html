@@ -9,7 +9,8 @@
     <div class="container">
       <h1>Recording Player</h1>
       <div class="controls">
-        <button id="load-recording">Load Recording</button>
+        <button id="load-recording">Load from File</button>
+        <button id="clear-all">Clear All Recordings</button>
         <input
           type="file"
           id="file-input"
@@ -17,6 +18,31 @@
           style="display: none"
         />
       </div>
+      
+      <div id="recordings-section">
+        <h2>Saved Recordings</h2>
+        <div id="recordings-table-container">
+          <table id="recordings-table">
+            <thead>
+              <tr>
+                <th>Tab ID</th>
+                <th>Title</th>
+                <th>URL</th>
+                <th>Events</th>
+                <th>Date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="recordings-tbody">
+              <!-- Recordings will be inserted here -->
+            </tbody>
+          </table>
+          <div id="no-recordings" style="display: none;">
+            No recordings found. Start recording on a tab to see it here.
+          </div>
+        </div>
+      </div>
+
       <div id="player-container"></div>
     </div>
     <script type="module" src="./player.js"></script>

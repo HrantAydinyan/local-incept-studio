@@ -36509,7 +36509,13 @@ const mockData = [
 
 const loadButton = document.getElementById("load-recording");
 const fileInput = document.getElementById("file-input");
+const clearAllButton = document.getElementById("clear-all");
 const playerContainer = document.getElementById("player-container");
+const recordingsTbody = document.getElementById("recordings-tbody");
+const noRecordings = document.getElementById("no-recordings");
+const recordingsTable = document.getElementById("recordings-table");
+
+let currentRecordings = {};
 
 loadButton.addEventListener("click", () => {
   fileInput.click();
@@ -36523,24 +36529,8 @@ fileInput.addEventListener("change", (event) => {
   reader.onload = (e) => {
     try {
       const events = JSON.parse(e.target.result);
-
-      // Clear previous player if exists
-      if (player) {
-        playerContainer.innerHTML = "";
-      }
-
-      // Create new player
-      player = new rrwebPlayer({
-        target: playerContainer,
-        props: {
-          events,
-          autoPlay: true,
-          width: 1024,
-          height: 576,
-        },
-      });
-
-      console.log("Recording loaded successfully");
+      playRecording(events);
+      console.log("Recording loaded successfully from file");
     } catch (error) {
       console.error("Error loading recording:", error);
       alert("Failed to load recording. Please check the file format.");
@@ -36550,20 +36540,119 @@ fileInput.addEventListener("change", (event) => {
   reader.readAsText(file);
 });
 
-// Listen for recordings from chrome storage
-chrome.storage.local.get(["recordings"], (result) => {
-  if (result.recordings && Object.keys(result.recordings).length > 0) {
-    console.log("Found recorded events in storage:", result.recordings);
-
-    // Auto-load if events exist
-    // player = new rrwebPlayer({
-    //   target: playerContainer,
-    //   props: {
-    //     events: result.recordings,
-    //     autoPlay: false,
-    //     width: 1024,
-    //     height: 576,
-    //   },
-    // });
+clearAllButton.addEventListener("click", () => {
+  if (confirm("Are you sure you want to delete all recordings?")) {
+    chrome.storage.local.set({ recordings: {} }, () => {
+      console.log("All recordings cleared");
+      loadRecordingsTable();
+      playerContainer.innerHTML = "";
+    });
   }
 });
+
+function formatDate(timestamp) {
+  const date = new Date(timestamp);
+  return date.toLocaleString();
+}
+
+function playRecording(events) {
+  // Clear previous player if exists
+  if (player) {
+    playerContainer.innerHTML = "";
+  }
+
+  // Scroll to player
+  playerContainer.scrollIntoView({ behavior: "smooth" });
+
+  // Create new player
+  player = new rrwebPlayer({
+    target: playerContainer,
+    props: {
+      events,
+      autoPlay: true,
+      width: 1024,
+      height: 576,
+    },
+  });
+}
+
+function deleteRecording(tabId) {
+  if (confirm(`Delete recording for tab ${tabId}?`)) {
+    chrome.storage.local.get(["recordings"], (result) => {
+      const recordings = result.recordings || {};
+      delete recordings[tabId];
+      chrome.storage.local.set({ recordings }, () => {
+        console.log(`Recording for tab ${tabId} deleted`);
+        loadRecordingsTable();
+        if (player) {
+          playerContainer.innerHTML = "";
+        }
+      });
+    });
+  }
+}
+
+function loadRecordingsTable() {
+  chrome.storage.local.get(["recordings"], (result) => {
+    currentRecordings = result.recordings || {};
+    const tabIds = Object.keys(currentRecordings);
+
+    // Clear table
+    recordingsTbody.innerHTML = "";
+
+    if (tabIds.length === 0) {
+      noRecordings.style.display = "block";
+      recordingsTable.style.display = "none";
+    } else {
+      noRecordings.style.display = "none";
+      recordingsTable.style.display = "table";
+
+      // Sort by timestamp (newest first)
+      tabIds.sort((a, b) => {
+        return currentRecordings[b].timestamp - currentRecordings[a].timestamp;
+      });
+
+      // Populate table
+      tabIds.forEach((tabId) => {
+        const recording = currentRecordings[tabId];
+        const row = document.createElement("tr");
+
+        row.innerHTML = `
+          <td>${tabId}</td>
+          <td>${recording.title || "Untitled"}</td>
+          <td class="url-cell" title="${recording.url}">${recording.url || "N/A"}</td>
+          <td>${recording.events.length}</td>
+          <td>${formatDate(recording.timestamp)}</td>
+          <td>
+            <button class="play-btn" data-tab-id="${tabId}">Play</button>
+            <button class="delete-btn" data-tab-id="${tabId}">Delete</button>
+          </td>
+        `;
+
+        recordingsTbody.appendChild(row);
+      });
+
+      // Add event listeners to play buttons
+      document.querySelectorAll(".play-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const tabId = e.target.dataset.tabId;
+          const recording = currentRecordings[tabId];
+          if (recording && recording.events) {
+            playRecording(recording.events);
+          }
+        });
+      });
+
+      // Add event listeners to delete buttons
+      document.querySelectorAll(".delete-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const tabId = e.target.dataset.tabId;
+          deleteRecording(tabId);
+        });
+      });
+    }
+  });
+}
+
+// Load recordings table on page load
+loadRecordingsTable();

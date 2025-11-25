@@ -18,6 +18,8 @@ h1 {
 
 .controls {
   margin-bottom: 20px;
+  display: flex;
+  gap: 10px;
 }
 
 button {
@@ -39,11 +41,98 @@ button:active {
   background-color: #004085;
 }
 
+#clear-all {
+  background-color: #dc3545;
+}
+
+#clear-all:hover {
+  background-color: #c82333;
+}
+
+#recordings-section {
+  margin-bottom: 30px;
+}
+
+h2 {
+  color: #333;
+  margin-bottom: 15px;
+  font-size: 20px;
+}
+
+#recordings-table-container {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+  overflow-x: auto;
+}
+
+#recordings-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#recordings-table th,
+#recordings-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+#recordings-table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #495057;
+}
+
+#recordings-table tr:hover {
+  background-color: #f8f9fa;
+}
+
+#recordings-table td {
+  color: #333;
+}
+
+.play-btn {
+  background-color: #28a745;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.play-btn:hover {
+  background-color: #218838;
+}
+
+.delete-btn {
+  background-color: #dc3545;
+  padding: 6px 12px;
+  font-size: 12px;
+  margin-left: 5px;
+}
+
+.delete-btn:hover {
+  background-color: #c82333;
+}
+
+#no-recordings {
+  text-align: center;
+  color: #6c757d;
+  padding: 40px;
+  font-size: 16px;
+}
+
 #player-container {
   background: white;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   min-height: 400px;
+}
+
+.url-cell {
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* rrweb player styles will be automatically added */
