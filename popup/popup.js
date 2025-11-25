@@ -25,16 +25,33 @@ function updateTimer(seconds) {
 }
 
 startButton.addEventListener("click", () => {
-  console.log("Recording started");
-  startStopwatch((sec) => {
-    console.log("Left:", sec);
-    updateTimer(sec);
+  //   console.log("Recording started");
+  //   startStopwatch((sec) => {
+  //     console.log("Left:", sec);
+  //     updateTimer(sec);
+  //   });
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    chrome.scripting.executeScript({
+      target: { tabId: tabs[0].id },
+      func: () => {
+        window.postMessage({ type: "start-recording" }, "*");
+      },
+    });
   });
 });
 
 stopButton.addEventListener("click", () => {
   console.log("Recording stopped");
-  stopTimer(interval);
+  //   stopTimer(interval);
+
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    chrome.scripting.executeScript({
+      target: { tabId: tabs[0].id },
+      func: () => {
+        window.postMessage({ type: "stop-recording" }, "*");
+      },
+    });
+  });
 });
 
 chrome.storage.local.get(["rrweb_events"], ({ rrweb_events }) => {
