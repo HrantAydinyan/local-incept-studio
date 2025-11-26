@@ -7,13 +7,11 @@ window.addEventListener("load", () => {
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "start-recording-auto") {
-    console.log("Auto-starting recording on this tab");
     window.postMessage({ type: "start-recording" }, "*");
     sendResponse({ success: true });
   }
 
   if (request.action === "stop-recording-auto") {
-    console.log("Auto-stopping recording on this tab");
     window.postMessage({ type: "stop-recording" }, "*");
     sendResponse({ success: true });
   }
@@ -41,21 +39,11 @@ window.addEventListener("message", (msg) => {
     const events = msg.data.events;
     const recordingId = msg.data.recordingId;
     const isFinalRecording = msg.data.isFinalRecording || false;
-    console.log(
-      "Content script received stop with events:",
-      events?.length,
-      "ID:",
-      recordingId,
-      "Final:",
-      isFinalRecording
-    );
 
     if (!events || events.length === 0) {
       console.warn("No events to save");
       return;
     }
-
-    console.log("Saving events to storage:", events.length);
 
     // Send save request to background (background will attach tabId)
     chrome.runtime.sendMessage(
@@ -75,7 +63,6 @@ window.addEventListener("message", (msg) => {
           );
           return;
         }
-        console.log("Background save-recording response:", response);
       }
     );
   }

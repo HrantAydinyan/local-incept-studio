@@ -55,7 +55,6 @@ startButton.addEventListener("click", () => {
       },
     },
     () => {
-      console.log("Recording state saved");
       startTimerDisplay();
 
       // Send start message to active tab
@@ -72,8 +71,6 @@ startButton.addEventListener("click", () => {
 });
 
 stopButton.addEventListener("click", () => {
-  console.log("Recording stopped");
-
   // Notify background that recording session has ended
   chrome.runtime.sendMessage({ type: "recording-stopped" });
 

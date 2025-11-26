@@ -1,5 +1,6 @@
 import rrwebPlayer from "rrweb-player";
 import "rrweb-player/dist/style.css";
+import { pack } from "rrweb";
 
 let player = null;
 
@@ -36530,7 +36531,6 @@ fileInput.addEventListener("change", (event) => {
     try {
       const events = JSON.parse(e.target.result);
       playRecording(events);
-      console.log("Recording loaded successfully from file");
     } catch (error) {
       console.error("Error loading recording:", error);
       alert("Failed to load recording. Please check the file format.");
@@ -36543,7 +36543,6 @@ fileInput.addEventListener("change", (event) => {
 clearAllButton.addEventListener("click", () => {
   if (confirm("Are you sure you want to delete all recordings?")) {
     chrome.runtime.sendMessage({ type: "clear-all-recordings" }, (resp) => {
-      console.log("Clear all response", resp);
       loadRecordingsTable();
       playerContainer.innerHTML = "";
     });
@@ -36621,6 +36620,7 @@ function loadRecordingsTable() {
           <td>${formatDate(session.firstTimestamp)}</td>
           <td>
             <button class="play-btn" data-session-id="${sessionId}">Play</button>
+            <button class="download-btn" data-session-id="${sessionId}">Download</button>
             <button class="delete-btn" data-session-id="${sessionId}">Delete</button>
           </td>
         `;
@@ -36646,6 +36646,44 @@ function loadRecordingsTable() {
         });
       });
 
+      // Add event listeners to download buttons
+      document.querySelectorAll(".download-btn").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const sessionId = e.target.dataset.sessionId;
+          const session = currentRecordings[sessionId];
+          if (session && session.recordings) {
+            // Combine all events from all recordings in the session
+            const allEvents = [];
+            session.recordings.forEach((recording) => {
+              allEvents.push(...recording.events);
+            });
+            // Sort events by timestamp
+            allEvents.sort((a, b) => a.timestamp - b.timestamp);
+
+            // Pack events using rrweb's pack function
+            const packedEvents = pack(allEvents);
+
+            // Create filename with timestamp
+            const timestamp = new Date(session.firstTimestamp)
+              .toISOString()
+              .replace(/[:.]/g, "-");
+            const filename = `recording-${timestamp}.json`;
+
+            // Create blob and download
+            const jsonString = JSON.stringify(packedEvents);
+            const blob = new Blob([jsonString], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
+        });
+      });
+
       // Add event listeners to delete buttons
       document.querySelectorAll(".delete-btn").forEach((btn) => {
         btn.addEventListener("click", (e) => {
@@ -36667,7 +36705,6 @@ function loadRecordingsTable() {
                   (resp) => {
                     deleteCount++;
                     if (deleteCount === session.recordings.length) {
-                      console.log("Session deleted");
                       loadRecordingsTable();
                       if (player) {
                         playerContainer.innerHTML = "";
