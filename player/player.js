@@ -36542,8 +36542,8 @@ fileInput.addEventListener("change", (event) => {
 
 clearAllButton.addEventListener("click", () => {
   if (confirm("Are you sure you want to delete all recordings?")) {
-    chrome.storage.local.set({ recordings: {} }, () => {
-      console.log("All recordings cleared");
+    chrome.runtime.sendMessage({ type: "clear-all-recordings" }, (resp) => {
+      console.log("Clear all response", resp);
       loadRecordingsTable();
       playerContainer.innerHTML = "";
     });
@@ -36578,23 +36578,32 @@ function playRecording(events) {
 
 function deleteRecording(recordingId) {
   if (confirm(`Delete this recording?`)) {
-    chrome.storage.local.get(["recordings"], (result) => {
-      const recordings = result.recordings || {};
-      delete recordings[recordingId];
-      chrome.storage.local.set({ recordings }, () => {
-        console.log(`Recording ${recordingId} deleted`);
+    chrome.runtime.sendMessage(
+      { type: "delete-recording", recordingId },
+      (resp) => {
+        console.log("Delete response", resp);
         loadRecordingsTable();
         if (player) {
           playerContainer.innerHTML = "";
         }
-      });
-    });
+      }
+    );
   }
 }
 
 function loadRecordingsTable() {
-  chrome.storage.local.get(["recordings"], (result) => {
-    currentRecordings = result.recordings || {};
+  chrome.runtime.sendMessage({ type: "get-all-recordings" }, (resp) => {
+    if (!resp || !resp.success) {
+      console.error("Failed to load recordings", resp && resp.error);
+      currentRecordings = {};
+    } else {
+      // convert array of recordings into an object keyed by id
+      const recArray = resp.recordings || [];
+      currentRecordings = {};
+      recArray.forEach((r) => {
+        currentRecordings[r.id] = r;
+      });
+    }
     const recordingIds = Object.keys(currentRecordings);
 
     // Clear table

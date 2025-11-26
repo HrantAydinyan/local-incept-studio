@@ -1,6 +1,19 @@
+import {
+  initDB,
+  saveRecordingWithId,
+  getAllRecordings,
+  deleteRecordingById,
+  clearAllRecordings,
+} from "./src/recordingDB";
+
 let events = [];
 let isRecording = false;
 let currentRecordingTabId = null;
+
+// Initialize IndexedDB for background
+initDB()
+  .then(() => console.log("Recording DB initialized in background"))
+  .catch((e) => console.error("DB init error", e));
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "rrweb-event") {
@@ -32,6 +45,53 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       console.log("Recording saved for tab:", currentRecordingTabId);
       // Don't reset isRecording here, let tab switch handle it
     }
+  }
+
+  // Save recording into IndexedDB (from content script)
+  if (msg.type === "save-recording") {
+    const recordingId =
+      msg.recordingId ||
+      `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const url = msg.url || "";
+    const title = msg.title || "";
+    const eventsToSave = msg.events || [];
+    const tabId = sender.tab ? sender.tab.id : null;
+
+    saveRecordingWithId(recordingId, eventsToSave, url, title, tabId)
+      .then((rec) => {
+        console.log("Saved recording", rec.id);
+        sendResponse({ success: true, id: rec.id });
+      })
+      .catch((err) => {
+        console.error("Error saving recording in background:", err);
+        sendResponse({ success: false, error: String(err) });
+      });
+    return true; // async
+  }
+
+  // Player requests all recordings
+  if (msg.type === "get-all-recordings") {
+    getAllRecordings()
+      .then((recs) => sendResponse({ success: true, recordings: recs }))
+      .catch((err) => sendResponse({ success: false, error: String(err) }));
+    return true;
+  }
+
+  // Delete a recording by id
+  if (msg.type === "delete-recording") {
+    const id = msg.recordingId;
+    deleteRecordingById(id)
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: String(err) }));
+    return true;
+  }
+
+  // Clear all recordings
+  if (msg.type === "clear-all-recordings") {
+    clearAllRecordings()
+      .then(() => sendResponse({ success: true }))
+      .catch((err) => sendResponse({ success: false, error: String(err) }));
+    return true;
   }
 });
 

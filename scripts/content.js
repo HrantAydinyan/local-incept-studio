@@ -56,54 +56,24 @@ window.addEventListener("message", (msg) => {
 
     console.log("Saving events to storage:", events.length);
 
-    // Get current tab ID for metadata
+    // Send save request to background (background will attach tabId)
     chrome.runtime.sendMessage(
       {
-        type: "get-tab-id",
+        type: "save-recording",
+        recordingId,
+        events,
+        url: window.location.href,
+        title: document.title,
       },
       (response) => {
-        const tabId = response?.tabId || "unknown";
-        console.log("Got tab ID:", tabId);
-
-        // Get existing recordings
-        chrome.storage.local.get(["recordings"], (result) => {
-          const recordings = result.recordings || {};
-          console.log("Current recordings:", Object.keys(recordings).length);
-
-          // Save events with unique recording ID
-          recordings[recordingId] = {
-            events: events,
-            url: window.location.href,
-            title: document.title,
-            timestamp: Date.now(),
-            tabId: tabId, // Keep tabId as metadata
-          };
-
-          chrome.storage.local.set({ recordings }, () => {
-            if (chrome.runtime.lastError) {
-              console.error(
-                "Error saving to storage:",
-                chrome.runtime.lastError
-              );
-              return;
-            }
-            console.log(`✅ Events saved successfully with ID ${recordingId}`);
-            console.log("Recording details:", {
-              recordingId,
-              tabId,
-              eventsCount: events.length,
-              url: window.location.href,
-            });
-
-            // Notify the user
-            chrome.runtime.sendMessage({
-              type: "recording-saved",
-              eventCount: events.length,
-              tabId: tabId,
-              recordingId: recordingId,
-            });
-          });
-        });
+        if (chrome.runtime.lastError) {
+          console.error(
+            "Error sending save-recording message:",
+            chrome.runtime.lastError
+          );
+          return;
+        }
+        console.log("Background save-recording response:", response);
       }
     );
   }
