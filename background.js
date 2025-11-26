@@ -4,11 +4,14 @@ import {
   getAllRecordings,
   deleteRecordingById,
   clearAllRecordings,
+  getRecordingsBySession,
+  getAllSessions,
 } from "./src/recordingDB";
 
 let events = [];
 let isRecording = false;
 let currentRecordingTabId = null;
+let currentSessionId = null;
 
 // Initialize IndexedDB for background
 initDB()
@@ -36,7 +39,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "recording-started") {
     isRecording = true;
     currentRecordingTabId = sender.tab ? sender.tab.id : null;
+    // Create a new session ID for this recording session
+    if (!currentSessionId) {
+      currentSessionId = `session-${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+      console.log("New recording session started:", currentSessionId);
+    }
     console.log("Recording started on tab:", currentRecordingTabId);
+    sendResponse({ sessionId: currentSessionId });
+    return true;
   }
 
   // Handle recording stopped/saved
@@ -56,11 +68,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const title = msg.title || "";
     const eventsToSave = msg.events || [];
     const tabId = sender.tab ? sender.tab.id : null;
+    const sessionId = currentSessionId || recordingId; // Use current session ID
 
-    saveRecordingWithId(recordingId, eventsToSave, url, title, tabId)
+    saveRecordingWithId(recordingId, eventsToSave, url, title, tabId, sessionId)
       .then((rec) => {
-        console.log("Saved recording", rec.id);
-        sendResponse({ success: true, id: rec.id });
+        console.log("Saved recording", rec.id, "for session", rec.sessionId);
+        sendResponse({ success: true, id: rec.id, sessionId: rec.sessionId });
       })
       .catch((err) => {
         console.error("Error saving recording in background:", err);
@@ -92,6 +105,31 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .then(() => sendResponse({ success: true }))
       .catch((err) => sendResponse({ success: false, error: String(err) }));
     return true;
+  }
+
+  // Get all sessions (grouped recordings)
+  if (msg.type === "get-all-sessions") {
+    getAllSessions()
+      .then((sessions) => sendResponse({ success: true, sessions }))
+      .catch((err) => sendResponse({ success: false, error: String(err) }));
+    return true;
+  }
+
+  // Get recordings by session ID
+  if (msg.type === "get-session-recordings") {
+    const sessionId = msg.sessionId;
+    getRecordingsBySession(sessionId)
+      .then((recordings) => sendResponse({ success: true, recordings }))
+      .catch((err) => sendResponse({ success: false, error: String(err) }));
+    return true;
+  }
+
+  // Handle recording stopped (clear session)
+  if (msg.type === "recording-stopped") {
+    console.log("Recording session ended:", currentSessionId);
+    currentSessionId = null; // Reset session for next recording
+    isRecording = false;
+    currentRecordingTabId = null;
   }
 });
 

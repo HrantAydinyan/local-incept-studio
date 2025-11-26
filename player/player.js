@@ -36576,67 +36576,52 @@ function playRecording(events) {
   });
 }
 
-function deleteRecording(recordingId) {
-  if (confirm(`Delete this recording?`)) {
-    chrome.runtime.sendMessage(
-      { type: "delete-recording", recordingId },
-      (resp) => {
-        console.log("Delete response", resp);
-        loadRecordingsTable();
-        if (player) {
-          playerContainer.innerHTML = "";
-        }
-      }
-    );
-  }
-}
-
 function loadRecordingsTable() {
-  chrome.runtime.sendMessage({ type: "get-all-recordings" }, (resp) => {
+  chrome.runtime.sendMessage({ type: "get-all-sessions" }, (resp) => {
     if (!resp || !resp.success) {
-      console.error("Failed to load recordings", resp && resp.error);
+      console.error("Failed to load sessions", resp && resp.error);
       currentRecordings = {};
     } else {
-      // convert array of recordings into an object keyed by id
-      const recArray = resp.recordings || [];
+      const sessions = resp.sessions || [];
       currentRecordings = {};
-      recArray.forEach((r) => {
-        currentRecordings[r.id] = r;
+
+      // Store sessions with their combined recordings
+      sessions.forEach((session) => {
+        currentRecordings[session.sessionId] = session;
       });
     }
-    const recordingIds = Object.keys(currentRecordings);
+    const sessionIds = Object.keys(currentRecordings);
 
     // Clear table
     recordingsTbody.innerHTML = "";
 
-    if (recordingIds.length === 0) {
+    if (sessionIds.length === 0) {
       noRecordings.style.display = "block";
       recordingsTable.style.display = "none";
     } else {
       noRecordings.style.display = "none";
       recordingsTable.style.display = "table";
 
-      // Sort by timestamp (newest first)
-      recordingIds.sort((a, b) => {
-        return currentRecordings[b].timestamp - currentRecordings[a].timestamp;
-      });
+      // Already sorted by timestamp in getAllSessions
 
       // Populate table
-      recordingIds.forEach((recordingId) => {
-        const recording = currentRecordings[recordingId];
+      sessionIds.forEach((sessionId) => {
+        const session = currentRecordings[sessionId];
+        const firstRecording = session.recordings[0];
+        const tabCount = session.recordings.length;
         const row = document.createElement("tr");
 
         row.innerHTML = `
-          <td>${recording.tabId || "N/A"}</td>
-          <td>${recording.title || "Untitled"}</td>
-          <td class="url-cell" title="${recording.url}">${
-          recording.url || "N/A"
+          <td>${tabCount} tab${tabCount > 1 ? "s" : ""}</td>
+          <td>${firstRecording.title || "Untitled"}</td>
+          <td class="url-cell" title="${firstRecording.url}">${
+          firstRecording.url || "N/A"
         }</td>
-          <td>${recording.events.length}</td>
-          <td>${formatDate(recording.timestamp)}</td>
+          <td>${session.totalEvents}</td>
+          <td>${formatDate(session.firstTimestamp)}</td>
           <td>
-            <button class="play-btn" data-recording-id="${recordingId}">Play</button>
-            <button class="delete-btn" data-recording-id="${recordingId}">Delete</button>
+            <button class="play-btn" data-session-id="${sessionId}">Play</button>
+            <button class="delete-btn" data-session-id="${sessionId}">Delete</button>
           </td>
         `;
 
@@ -36646,10 +36631,17 @@ function loadRecordingsTable() {
       // Add event listeners to play buttons
       document.querySelectorAll(".play-btn").forEach((btn) => {
         btn.addEventListener("click", (e) => {
-          const recordingId = e.target.dataset.recordingId;
-          const recording = currentRecordings[recordingId];
-          if (recording && recording.events) {
-            playRecording(recording.events);
+          const sessionId = e.target.dataset.sessionId;
+          const session = currentRecordings[sessionId];
+          if (session && session.recordings) {
+            // Combine all events from all recordings in the session
+            const allEvents = [];
+            session.recordings.forEach((recording) => {
+              allEvents.push(...recording.events);
+            });
+            // Sort events by timestamp
+            allEvents.sort((a, b) => a.timestamp - b.timestamp);
+            playRecording(allEvents);
           }
         });
       });
@@ -36657,8 +36649,35 @@ function loadRecordingsTable() {
       // Add event listeners to delete buttons
       document.querySelectorAll(".delete-btn").forEach((btn) => {
         btn.addEventListener("click", (e) => {
-          const recordingId = e.target.dataset.recordingId;
-          deleteRecording(recordingId);
+          const sessionId = e.target.dataset.sessionId;
+          const session = currentRecordings[sessionId];
+          if (session) {
+            // Delete all recordings in the session
+            if (
+              confirm(
+                `Delete this recording session (${
+                  session.recordings.length
+                } recording${session.recordings.length > 1 ? "s" : ""})?`
+              )
+            ) {
+              let deleteCount = 0;
+              session.recordings.forEach((recording) => {
+                chrome.runtime.sendMessage(
+                  { type: "delete-recording", recordingId: recording.id },
+                  (resp) => {
+                    deleteCount++;
+                    if (deleteCount === session.recordings.length) {
+                      console.log("Session deleted");
+                      loadRecordingsTable();
+                      if (player) {
+                        playerContainer.innerHTML = "";
+                      }
+                    }
+                  }
+                );
+              });
+            }
+          }
         });
       });
     }

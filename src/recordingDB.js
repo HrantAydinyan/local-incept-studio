@@ -31,7 +31,8 @@ export async function saveRecordingWithId(
   events,
   url = "",
   title = "",
-  tabId = null
+  tabId = null,
+  sessionId = null
 ) {
   await initDB();
   return new Promise((resolve, reject) => {
@@ -44,6 +45,7 @@ export async function saveRecordingWithId(
       title,
       timestamp: Date.now(),
       tabId,
+      sessionId: sessionId || recordingId, // If no session, use recordingId as session
     };
     const req = objectStore.put(rec);
     req.onsuccess = () => resolve(rec);
@@ -80,6 +82,62 @@ export async function clearAllRecordings() {
     const objectStore = transaction.objectStore(STORE_NAME);
     const req = objectStore.clear();
     req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function getRecordingsBySession(sessionId) {
+  await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], "readonly");
+    const objectStore = transaction.objectStore(STORE_NAME);
+    const req = objectStore.getAll();
+    req.onsuccess = () => {
+      const allRecordings = req.result;
+      const sessionRecordings = allRecordings.filter(
+        (r) => r.sessionId === sessionId
+      );
+      resolve(sessionRecordings);
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function getAllSessions() {
+  await initDB();
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([STORE_NAME], "readonly");
+    const objectStore = transaction.objectStore(STORE_NAME);
+    const req = objectStore.getAll();
+    req.onsuccess = () => {
+      const allRecordings = req.result;
+      const sessionsMap = new Map();
+
+      allRecordings.forEach((recording) => {
+        const sessionId = recording.sessionId || recording.id;
+        if (!sessionsMap.has(sessionId)) {
+          sessionsMap.set(sessionId, {
+            sessionId: sessionId,
+            recordings: [],
+            firstTimestamp: recording.timestamp,
+            totalEvents: 0,
+          });
+        }
+        const session = sessionsMap.get(sessionId);
+        session.recordings.push(recording);
+        session.totalEvents += recording.events.length;
+        session.firstTimestamp = Math.min(
+          session.firstTimestamp,
+          recording.timestamp
+        );
+      });
+
+      // Convert to array and sort by timestamp
+      const sessions = Array.from(sessionsMap.values()).sort(
+        (a, b) => b.firstTimestamp - a.firstTimestamp
+      );
+      resolve(sessions);
+    };
     req.onerror = () => reject(req.error);
   });
 }

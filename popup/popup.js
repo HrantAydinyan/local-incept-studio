@@ -74,6 +74,9 @@ startButton.addEventListener("click", () => {
 stopButton.addEventListener("click", () => {
   console.log("Recording stopped");
 
+  // Notify background that recording session has ended
+  chrome.runtime.sendMessage({ type: "recording-stopped" });
+
   // Clear recording state
   chrome.storage.local.set(
     {
