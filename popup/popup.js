@@ -93,12 +93,15 @@ stopButton.addEventListener("click", () => {
       startButton.style.opacity = "1";
       stopButton.style.opacity = "0.5";
 
-      // Send stop message to active tab
+      // Send stop message to active tab with isFinalRecording flag
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         chrome.scripting.executeScript({
           target: { tabId: tabs[0].id },
           func: () => {
-            window.postMessage({ type: "stop-recording" }, "*");
+            window.postMessage(
+              { type: "stop-recording", isFinalRecording: true },
+              "*"
+            );
           },
         });
       });

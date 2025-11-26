@@ -42,11 +42,14 @@ window.addEventListener("message", (msg) => {
   if (msg.data?.source === "rrweb-stop") {
     const events = msg.data.events;
     const recordingId = msg.data.recordingId;
+    const isFinalRecording = msg.data.isFinalRecording || false;
     console.log(
       "Content script received stop with events:",
       events?.length,
       "ID:",
-      recordingId
+      recordingId,
+      "Final:",
+      isFinalRecording
     );
 
     if (!events || events.length === 0) {
@@ -64,6 +67,7 @@ window.addEventListener("message", (msg) => {
         events,
         url: window.location.href,
         title: document.title,
+        isFinalRecording: isFinalRecording,
       },
       (response) => {
         if (chrome.runtime.lastError) {

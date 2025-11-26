@@ -57,6 +57,7 @@ const messageHandler = (event) => {
       console.log("Stop recording requested. Current state:", {
         hasStopFn: !!stopFn,
         eventsCount: events.length,
+        isFinalRecording: data.isFinalRecording,
       });
 
       if (stopFn) {
@@ -76,6 +77,7 @@ const messageHandler = (event) => {
                 source: "rrweb-stop",
                 events: [...events], // Send a copy
                 recordingId: recordingId,
+                isFinalRecording: data.isFinalRecording || false,
               },
               "*"
             );

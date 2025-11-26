@@ -69,10 +69,23 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const eventsToSave = msg.events || [];
     const tabId = sender.tab ? sender.tab.id : null;
     const sessionId = currentSessionId || recordingId; // Use current session ID
+    const isFinalRecording = msg.isFinalRecording || false;
 
     saveRecordingWithId(recordingId, eventsToSave, url, title, tabId, sessionId)
       .then((rec) => {
         console.log("Saved recording", rec.id, "for session", rec.sessionId);
+
+        // If this is the final recording (user clicked stop), clear the session
+        if (isFinalRecording) {
+          console.log(
+            "Final recording saved, clearing session:",
+            currentSessionId
+          );
+          currentSessionId = null;
+          isRecording = false;
+          currentRecordingTabId = null;
+        }
+
         sendResponse({ success: true, id: rec.id, sessionId: rec.sessionId });
       })
       .catch((err) => {
@@ -124,12 +137,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     return true;
   }
 
-  // Handle recording stopped (clear session)
+  // Handle recording stopped (mark that we're stopping)
   if (msg.type === "recording-stopped") {
-    console.log("Recording session ended:", currentSessionId);
-    currentSessionId = null; // Reset session for next recording
+    console.log("Recording stop requested for session:", currentSessionId);
+    // Don't clear session here - wait for final recording to be saved
+    // Session will be cleared in save-recording when isFinalRecording=true
     isRecording = false;
-    currentRecordingTabId = null;
   }
 });
 
