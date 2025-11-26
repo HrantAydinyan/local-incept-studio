@@ -1,9 +1,107 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 320px;
+  min-height: 200px;
+  padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #333;
+}
+
+h1 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 20px;
+  text-align: center;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
 #recorder-controls {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+button {
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+#start-recording {
+  background: #10b981;
+  color: white;
+}
+
+#start-recording:hover {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+#start-recording:active {
+  transform: translateY(0);
+}
+
+#stop-recording {
+  background: #ef4444;
+  color: white;
+}
+
+#stop-recording:hover {
+  background: #dc2626;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+}
+
+#stop-recording:active {
+  transform: translateY(0);
+}
+
+#open-player {
+  background: white;
+  color: #667eea;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+#open-player:hover {
+  background: rgba(255, 255, 255, 0.95);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.3);
+}
+
+#open-player:active {
+  transform: translateY(0);
 }
 
 .recording-timer-container {
-  margin-top: 12px;
+  margin-top: 16px;
+  padding: 16px;
   text-align: center;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+#recording-timer {
+  font-size: 32px;
+  font-weight: 700;
+  color: #667eea;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 2px;
 }
