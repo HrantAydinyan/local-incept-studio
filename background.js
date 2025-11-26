@@ -12,6 +12,7 @@ let events = [];
 let isRecording = false;
 let currentRecordingTabId = null;
 let currentSessionId = null;
+let recordingTabs = new Set(); // Track which tabs have active recordings
 
 // Initialize IndexedDB for background
 initDB()
@@ -38,7 +39,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   // Handle recording started
   if (msg.type === "recording-started") {
     isRecording = true;
-    currentRecordingTabId = sender.tab ? sender.tab.id : null;
+    const tabId = sender.tab ? sender.tab.id : null;
+    if (tabId) {
+      recordingTabs.add(tabId);
+      currentRecordingTabId = tabId;
+    }
     // Create a new session ID for this recording session
     if (!currentSessionId) {
       currentSessionId = `session-${Date.now()}-${Math.random()
@@ -75,6 +80,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .then((rec) => {
         console.log("Saved recording", rec.id, "for session", rec.sessionId);
 
+        // Remove this tab from recording tabs
+        if (tabId) {
+          recordingTabs.delete(tabId);
+        }
+        
         // If this is the final recording (user clicked stop), clear the session
         if (isFinalRecording) {
           console.log(
@@ -84,6 +94,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           currentSessionId = null;
           isRecording = false;
           currentRecordingTabId = null;
+          recordingTabs.clear();
         }
 
         sendResponse({ success: true, id: rec.id, sessionId: rec.sessionId });
@@ -156,9 +167,8 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
   );
 
   // Get tab details
-  chrome.tabs.get(activeInfo.tabId, (tab) => {
-    console.log("Switched to tab:", tab.url, tab.title);
-  });
+  const tab = await chrome.tabs.get(activeInfo.tabId);
+  console.log("Switched to tab:", tab.url, tab.title);
 
   // If recording is active and user switched to a different tab
   if (
@@ -170,35 +180,44 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
       "Tab switched during recording. Stopping old tab, starting new tab..."
     );
 
-    // Stop recording on the old tab
-    try {
-      await chrome.tabs.sendMessage(currentRecordingTabId, {
-        action: "stop-recording-auto",
-      });
-      console.log("Stopped recording on tab:", currentRecordingTabId);
-    } catch (error) {
-      console.log("Could not stop recording on old tab:", error.message);
+    // Stop recording on the old tab ONLY if it has an active recording
+    if (recordingTabs.has(currentRecordingTabId)) {
+      try {
+        await chrome.tabs.sendMessage(currentRecordingTabId, {
+          action: "stop-recording-auto",
+        });
+        console.log("Stopped recording on tab:", currentRecordingTabId);
+      } catch (error) {
+        console.log("Could not stop recording on old tab:", error.message);
+      }
+    } else {
+      console.log("Old tab", currentRecordingTabId, "has no active recording");
     }
 
     // Wait a bit for the stop to complete
     setTimeout(async () => {
       // Start recording on the new tab
       try {
-        const newTab = await chrome.tabs.get(activeInfo.tabId);
         // Only start on valid URLs (not chrome:// or extension pages)
         if (
-          newTab.url &&
-          !newTab.url.startsWith("chrome://") &&
-          !newTab.url.startsWith("chrome-extension://")
+          tab.url &&
+          !tab.url.startsWith("chrome://") &&
+          !tab.url.startsWith("chrome-extension://") &&
+          !tab.url.startsWith("about:")
         ) {
-          await chrome.tabs.sendMessage(activeInfo.tabId, {
-            action: "start-recording-auto",
-          });
-          currentRecordingTabId = activeInfo.tabId;
-          console.log("Started recording on new tab:", activeInfo.tabId);
+          // Check if page is fully loaded
+          if (tab.status === "complete") {
+            await chrome.tabs.sendMessage(activeInfo.tabId, {
+              action: "start-recording-auto",
+            });
+            currentRecordingTabId = activeInfo.tabId;
+            console.log("Started recording on new tab:", activeInfo.tabId);
+          } else {
+            console.log("Waiting for tab to load:", activeInfo.tabId);
+            // Tab will be handled by onUpdated listener when it completes loading
+          }
         } else {
-          console.log("Cannot record on this type of page:", newTab.url);
-          isRecording = false;
+          console.log("Cannot record on this type of page:", tab.url);
           currentRecordingTabId = null;
         }
       } catch (error) {
@@ -209,18 +228,48 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 });
 
 // Listen to tab updates (when tab URL changes, page loads, etc)
-chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete") {
     console.log("Tab updated:", tabId, "URL:", tab.url);
+    
+    // If recording is active and this is a newly loaded tab, start recording on it
+    if (isRecording && tabId !== currentRecordingTabId) {
+      console.log("New tab loaded during recording session:", tabId);
+      
+      // Check if it's a valid URL
+      if (
+        tab.url &&
+        !tab.url.startsWith("chrome://") &&
+        !tab.url.startsWith("chrome-extension://") &&
+        !tab.url.startsWith("about:")
+      ) {
+        // Wait a bit for content script to be ready
+        setTimeout(async () => {
+          try {
+            await chrome.tabs.sendMessage(tabId, {
+              action: "start-recording-auto",
+            });
+            console.log("Auto-started recording on new tab:", tabId);
+          } catch (error) {
+            console.log("Could not start recording on new tab:", error.message);
+          }
+        }, 1000);
+      }
+    }
   }
 });
 
 // Listen to tab creation
 chrome.tabs.onCreated.addListener((tab) => {
-  console.log("Tab created:", tab.id);
+  console.log("Tab created:", tab.id, "Recording active:", isRecording);
 });
 
 // Listen to tab removal
 chrome.tabs.onRemoved.addListener((tabId, removeInfo) => {
   console.log("Tab removed:", tabId, "Window:", removeInfo.windowId);
+  // Clean up tracking
+  recordingTabs.delete(tabId);
+  if (currentRecordingTabId === tabId) {
+    currentRecordingTabId = null;
+  }
 });

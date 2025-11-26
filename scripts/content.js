@@ -4,8 +4,6 @@ window.addEventListener("load", () => {
   document.documentElement.appendChild(scriptEl);
 });
 
-console.log("11111");
-
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "start-recording-auto") {

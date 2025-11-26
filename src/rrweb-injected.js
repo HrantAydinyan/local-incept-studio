@@ -11,6 +11,10 @@ function startRecord() {
     return;
   }
 
+  // Clear any previous events to ensure clean start
+  events = [];
+  console.log("Cleared previous events, starting fresh recording");
+
   const formConfig = {
     // checkoutEveryNth: 10000,
     checkoutEveryNms: 600000,
