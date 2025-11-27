@@ -72,7 +72,36 @@ function startTimerDisplay() {
   });
 }
 
-startButton.addEventListener("click", () => {
+startButton.addEventListener("click", async () => {
+  // Get all tabs
+  const allTabs = await chrome.tabs.query({});
+
+  // Inject content script into all valid tabs
+  for (const tab of allTabs) {
+    if (tab.id && tab.url && isValidUrl(tab.url)) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ["scripts/content.js"],
+        });
+        console.log(`Content script injected into tab ${tab.id}`);
+      } catch (error) {
+        // Content script might already be loaded, which is fine
+        console.log(`Tab ${tab.id} injection:`, error.message);
+      }
+    }
+  }
+
+  // Wait a bit for content scripts to initialize
+  await new Promise((resolve) => setTimeout(resolve, 200));
+
+  // Get active tab to start recording
+  const activeTabs = await chrome.tabs.query({
+    active: true,
+    currentWindow: true,
+  });
+  const activeTabId = activeTabs[0].id;
+
   // Save recording state
   chrome.storage.local.set(
     {
@@ -85,13 +114,11 @@ startButton.addEventListener("click", () => {
       startTimerDisplay();
 
       // Send start message to active tab
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        chrome.scripting.executeScript({
-          target: { tabId: tabs[0].id },
-          func: () => {
-            window.postMessage({ type: "start-recording" }, "*");
-          },
-        });
+      chrome.scripting.executeScript({
+        target: { tabId: activeTabId },
+        func: () => {
+          window.postMessage({ type: "start-recording" }, "*");
+        },
       });
     }
   );

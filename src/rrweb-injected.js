@@ -5,6 +5,7 @@ let stopFn = null;
 let events = [];
 
 function startRecord() {
+  console.log("Starting rrweb recording");
   // Don't start if already recording
   if (stopFn) {
     return;

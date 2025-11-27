@@ -19,6 +19,63 @@ initDB()
   .then(() => console.log("Recording DB initialized in background"))
   .catch((e) => console.error("DB init error", e));
 
+// Inject content script into all existing tabs on install/update
+async function injectContentScriptIntoAllTabs() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    console.log(`Found ${tabs.length} tabs to inject content script`);
+
+    for (const tab of tabs) {
+      // Skip if tab doesn't have ID or URL
+      if (!tab.id || !tab.url) {
+        continue;
+      }
+
+      // Only inject into valid URLs
+      if (
+        !tab.url.startsWith("chrome://") &&
+        !tab.url.startsWith("chrome-extension://") &&
+        !tab.url.startsWith("about:") &&
+        !tab.url.startsWith("edge://") &&
+        !tab.url.startsWith("opera://") &&
+        !tab.url.startsWith("devtools://")
+      ) {
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["scripts/content.js"],
+          });
+          console.log(`Injected content script into tab ${tab.id}: ${tab.url}`);
+        } catch (error) {
+          // Silently ignore errors for tabs that can't be injected
+          if (!error.message.includes("Cannot access")) {
+            console.log(`Could not inject into tab ${tab.id}:`, error.message);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error injecting content scripts:", error);
+  }
+}
+
+// Listen for extension installation or update
+chrome.runtime.onInstalled.addListener((details) => {
+  console.log("Extension event:", details.reason);
+
+  if (details.reason === "install") {
+    console.log(
+      "Extension installed - injecting content scripts into existing tabs"
+    );
+    injectContentScriptIntoAllTabs();
+  } else if (details.reason === "update") {
+    console.log(
+      "Extension updated - injecting content scripts into existing tabs"
+    );
+    injectContentScriptIntoAllTabs();
+  }
+});
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "rrweb-event") {
     events.push(msg.event);
