@@ -232,9 +232,19 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete") {
     console.log("Tab updated:", tabId, "URL:", tab.url);
     
-    // If recording is active and this is a newly loaded tab, start recording on it
-    if (isRecording && tabId !== currentRecordingTabId) {
-      console.log("New tab loaded during recording session:", tabId);
+    // If recording is active, handle both cases:
+    // 1. Current recording tab navigated to new URL (page reload/navigation)
+    // 2. A different tab loaded during recording session
+    if (isRecording) {
+      const isCurrentTab = tabId === currentRecordingTabId;
+      const wasRecording = recordingTabs.has(tabId);
+      
+      console.log("Tab status:", {
+        tabId,
+        isCurrentTab,
+        wasRecording,
+        currentRecordingTabId,
+      });
       
       // Check if it's a valid URL
       if (
@@ -243,17 +253,23 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         !tab.url.startsWith("chrome-extension://") &&
         !tab.url.startsWith("about:")
       ) {
-        // Wait a bit for content script to be ready
-        setTimeout(async () => {
-          try {
-            await chrome.tabs.sendMessage(tabId, {
-              action: "start-recording-auto",
-            });
-            console.log("Auto-started recording on new tab:", tabId);
-          } catch (error) {
-            console.log("Could not start recording on new tab:", error.message);
-          }
-        }, 1000);
+        // If this is the current recording tab or any tab during active recording,
+        // restart recording after page load
+        if (isCurrentTab || wasRecording || tabId !== currentRecordingTabId) {
+          console.log("Starting/restarting recording on tab:", tabId);
+          
+          // Wait a bit for content script to be ready
+          setTimeout(async () => {
+            try {
+              await chrome.tabs.sendMessage(tabId, {
+                action: "start-recording-auto",
+              });
+              console.log("Auto-started recording on tab:", tabId);
+            } catch (error) {
+              console.log("Could not start recording on tab:", error.message);
+            }
+          }, 1000);
+        }
       }
     }
   }
