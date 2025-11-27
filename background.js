@@ -84,7 +84,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         if (tabId) {
           recordingTabs.delete(tabId);
         }
-        
+
         // If this is the final recording (user clicked stop), clear the session
         if (isFinalRecording) {
           console.log(
@@ -231,21 +231,21 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete") {
     console.log("Tab updated:", tabId, "URL:", tab.url);
-    
+
     // If recording is active, handle both cases:
     // 1. Current recording tab navigated to new URL (page reload/navigation)
     // 2. A different tab loaded during recording session
     if (isRecording) {
       const isCurrentTab = tabId === currentRecordingTabId;
       const wasRecording = recordingTabs.has(tabId);
-      
+
       console.log("Tab status:", {
         tabId,
         isCurrentTab,
         wasRecording,
         currentRecordingTabId,
       });
-      
+
       // Check if it's a valid URL
       if (
         tab.url &&
@@ -257,7 +257,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         // restart recording after page load
         if (isCurrentTab || wasRecording || tabId !== currentRecordingTabId) {
           console.log("Starting/restarting recording on tab:", tabId);
-          
+
           // Wait a bit for content script to be ready
           setTimeout(async () => {
             try {
