@@ -103,6 +103,17 @@ h2 {
   background-color: #218838;
 }
 
+.download-btn {
+  background-color: #17a2b8;
+  padding: 6px 12px;
+  font-size: 12px;
+  margin-left: 5px;
+}
+
+.download-btn:hover {
+  background-color: #138496;
+}
+
 .delete-btn {
   background-color: #dc3545;
   padding: 6px 12px;

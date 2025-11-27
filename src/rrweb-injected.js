@@ -7,13 +7,11 @@ let events = [];
 function startRecord() {
   // Don't start if already recording
   if (stopFn) {
-    console.log("Recording already in progress");
     return;
   }
 
   // Clear any previous events to ensure clean start
   events = [];
-  console.log("Cleared previous events, starting fresh recording");
 
   const formConfig = {
     // checkoutEveryNth: 10000,
@@ -28,22 +26,33 @@ function startRecord() {
 
     blockClass: "rr-block",
     ignoreClass: "rr-ignore",
+
+    slimDOMOptions: {
+      script: true,
+      comment: true,
+      headFavicon: true,
+      headWhitespace: true,
+      headMetaDescKeywords: true,
+      headMetaSocial: true,
+      headMetaRobots: true,
+      headMetaHttpEquiv: true,
+      headMetaAuthorship: true,
+      headMetaVerification: true,
+      headTitleMutations: true,
+    },
   };
-  console.log("start Recording");
+
   stopFn = record({
     emit: (event) => {
       events.push(event);
-      console.log("Event captured. Total events:", events.length);
     },
     ...formConfig,
   });
-  console.log("Recording started successfully");
 }
 
 // startRecord();
 
 const messageHandler = (event) => {
-  console.log("message received", event);
   if (event.source !== window) return;
   const data = event.data;
   const eventHandler = {
@@ -58,20 +67,12 @@ const messageHandler = (event) => {
       );
     },
     ["stop-recording"]: () => {
-      console.log("Stop recording requested. Current state:", {
-        hasStopFn: !!stopFn,
-        eventsCount: events.length,
-        isFinalRecording: data.isFinalRecording,
-      });
-
       if (stopFn) {
         try {
-          console.log("Stopping recording with", events.length, "events");
           stopFn();
 
           // Only send if we have events
           if (events.length > 0) {
-            console.log("Sending events to content script:", events.length);
             // Generate unique ID for this recording session
             const recordingId = `${Date.now()}-${Math.random()
               .toString(36)
