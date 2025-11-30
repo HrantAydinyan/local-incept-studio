@@ -7,6 +7,7 @@ import {
   getRecordingsBySession,
   getAllSessions,
 } from "./src/recordingDB";
+import { uploadRecordingData } from "./src/recordingUpload";
 
 let events = [];
 let isRecording = false;
@@ -73,18 +74,47 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const isFinalRecording = msg.isFinalRecording || false;
 
     saveRecordingWithId(recordingId, eventsToSave, url, title, tabId, sessionId)
-      .then((rec) => {
-        // Remove this tab from recording tabs
+      .then(async (rec) => {
         if (tabId) {
           recordingTabs.delete(tabId);
         }
 
-        // If this is the final recording (user clicked stop), clear the session
         if (isFinalRecording) {
+          const finalSessionId = sessionId;
+
           currentSessionId = null;
           isRecording = false;
           currentRecordingTabId = null;
           recordingTabs.clear();
+
+          try {
+            const token =
+              "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0cnVlbGF3OmRlbW8tdXNlciIsImV4cCI6MTc3ODUxNDM3NSwibmJmIjoxNzYyOTYyMzc1LCJpYXQiOjE3NjI5NjIzNzV9.f7p2T1KEi47GYR3GI8TZDM2DXDkdIPUSF2b1J6PDSI7C2eliebzjR35UxdytFSYp_wZk3dBGMXvfsaUcc68uw87XKJKf_jzJIG6hNPH6V4jLVWrmOGDXCuD0w4yeFuJgCXpn3WwFVIbzXDryAhXcYxlhA5ImFTRk5PQ6ToAWWLRMufuWIGixGC_gn8fM1say48Hi_o0IAIDSdptbevOBzn_enlpmQ4OB7h5KWxVb2X3GRrUoiBqQoXd6a_Ufjk_ROWmFCf3Ud1xx3Hfy4KwjVXygI93gR5QY-sFbBh6czBzFJMkVm_oSlqCbPbCU6k3YFm4wB6EckBTk1wPRoZvrPA";
+            if (token) {
+              const sessionRecordings = await getRecordingsBySession(
+                finalSessionId
+              );
+
+              const allEvents = [];
+              for (const recording of sessionRecordings) {
+                if (recording.events && Array.isArray(recording.events)) {
+                  allEvents.push(...recording.events);
+                }
+              }
+
+              if (allEvents.length > 0) {
+                await uploadRecordingData(allEvents, finalSessionId, token);
+              } else {
+                console.warn(
+                  `No events to upload for session ${finalSessionId}`
+                );
+              }
+            } else {
+              console.warn("No token found, skipping upload");
+            }
+          } catch (uploadError) {
+            console.error("Error uploading recording data:", uploadError);
+          }
         }
 
         sendResponse({ success: true, id: rec.id, sessionId: rec.sessionId });
