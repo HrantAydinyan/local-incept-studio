@@ -20,6 +20,63 @@ initDB()
   .then(() => console.log("Recording DB initialized in background"))
   .catch((e) => console.error("DB init error", e));
 
+// Inject content script into all existing tabs on install/update
+async function injectContentScriptIntoAllTabs() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    console.log(`Found ${tabs.length} tabs to inject content script`);
+
+    for (const tab of tabs) {
+      // Skip if tab doesn't have ID or URL
+      if (!tab.id || !tab.url) {
+        continue;
+      }
+
+      // Only inject into valid URLs
+      if (
+        !tab.url.startsWith("chrome://") &&
+        !tab.url.startsWith("chrome-extension://") &&
+        !tab.url.startsWith("about:") &&
+        !tab.url.startsWith("edge://") &&
+        !tab.url.startsWith("opera://") &&
+        !tab.url.startsWith("devtools://")
+      ) {
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["scripts/content.js"],
+          });
+          console.log(`Injected content script into tab ${tab.id}: ${tab.url}`);
+        } catch (error) {
+          // Silently ignore errors for tabs that can't be injected
+          if (!error.message.includes("Cannot access")) {
+            console.log(`Could not inject into tab ${tab.id}:`, error.message);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error injecting content scripts:", error);
+  }
+}
+
+// Listen for extension installation or update
+chrome.runtime.onInstalled.addListener((details) => {
+  console.log("Extension event:", details.reason);
+
+  if (details.reason === "install") {
+    console.log(
+      "Extension installed - injecting content scripts into existing tabs"
+    );
+    injectContentScriptIntoAllTabs();
+  } else if (details.reason === "update") {
+    console.log(
+      "Extension updated - injecting content scripts into existing tabs"
+    );
+    injectContentScriptIntoAllTabs();
+  }
+});
+
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "rrweb-event") {
     events.push(msg.event);
@@ -227,8 +284,22 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 // Listen to tab updates (when tab URL changes, page loads, etc)
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete") {
-    // If recording is active and this is a newly loaded tab, start recording on it
-    if (isRecording && tabId !== currentRecordingTabId) {
+    console.log("Tab updated:", tabId, "URL:", tab.url);
+
+    // If recording is active, handle both cases:
+    // 1. Current recording tab navigated to new URL (page reload/navigation)
+    // 2. A different tab loaded during recording session
+    if (isRecording) {
+      const isCurrentTab = tabId === currentRecordingTabId;
+      const wasRecording = recordingTabs.has(tabId);
+
+      console.log("Tab status:", {
+        tabId,
+        isCurrentTab,
+        wasRecording,
+        currentRecordingTabId,
+      });
+
       // Check if it's a valid URL
       if (
         tab.url &&
@@ -236,16 +307,23 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         !tab.url.startsWith("chrome-extension://") &&
         !tab.url.startsWith("about:")
       ) {
-        // Wait a bit for content script to be ready
-        setTimeout(async () => {
-          try {
-            await chrome.tabs.sendMessage(tabId, {
-              action: "start-recording-auto",
-            });
-          } catch (error) {
-            console.log("Could not start recording on new tab:", error.message);
-          }
-        }, 1000);
+        // If this is the current recording tab or any tab during active recording,
+        // restart recording after page load
+        if (isCurrentTab || wasRecording || tabId !== currentRecordingTabId) {
+          console.log("Starting/restarting recording on tab:", tabId);
+
+          // Wait a bit for content script to be ready
+          setTimeout(async () => {
+            try {
+              await chrome.tabs.sendMessage(tabId, {
+                action: "start-recording-auto",
+              });
+              console.log("Auto-started recording on tab:", tabId);
+            } catch (error) {
+              console.log("Could not start recording on tab:", error.message);
+            }
+          }, 1000);
+        }
       }
     }
   }
