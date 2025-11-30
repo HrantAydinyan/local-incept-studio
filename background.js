@@ -7,6 +7,7 @@ import {
   getRecordingsBySession,
   getAllSessions,
 } from "./src/recordingDB";
+import { uploadRecordingData } from "./src/recordingUpload";
 
 let events = [];
 let isRecording = false;
@@ -18,6 +19,63 @@ let recordingTabs = new Set(); // Track which tabs have active recordings
 initDB()
   .then(() => console.log("Recording DB initialized in background"))
   .catch((e) => console.error("DB init error", e));
+
+// Inject content script into all existing tabs on install/update
+async function injectContentScriptIntoAllTabs() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    console.log(`Found ${tabs.length} tabs to inject content script`);
+
+    for (const tab of tabs) {
+      // Skip if tab doesn't have ID or URL
+      if (!tab.id || !tab.url) {
+        continue;
+      }
+
+      // Only inject into valid URLs
+      if (
+        !tab.url.startsWith("chrome://") &&
+        !tab.url.startsWith("chrome-extension://") &&
+        !tab.url.startsWith("about:") &&
+        !tab.url.startsWith("edge://") &&
+        !tab.url.startsWith("opera://") &&
+        !tab.url.startsWith("devtools://")
+      ) {
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ["scripts/content.js"],
+          });
+          console.log(`Injected content script into tab ${tab.id}: ${tab.url}`);
+        } catch (error) {
+          // Silently ignore errors for tabs that can't be injected
+          if (!error.message.includes("Cannot access")) {
+            console.log(`Could not inject into tab ${tab.id}:`, error.message);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    console.error("Error injecting content scripts:", error);
+  }
+}
+
+// Listen for extension installation or update
+chrome.runtime.onInstalled.addListener((details) => {
+  console.log("Extension event:", details.reason);
+
+  if (details.reason === "install") {
+    console.log(
+      "Extension installed - injecting content scripts into existing tabs"
+    );
+    injectContentScriptIntoAllTabs();
+  } else if (details.reason === "update") {
+    console.log(
+      "Extension updated - injecting content scripts into existing tabs"
+    );
+    injectContentScriptIntoAllTabs();
+  }
+});
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === "rrweb-event") {
@@ -73,18 +131,47 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     const isFinalRecording = msg.isFinalRecording || false;
 
     saveRecordingWithId(recordingId, eventsToSave, url, title, tabId, sessionId)
-      .then((rec) => {
-        // Remove this tab from recording tabs
+      .then(async (rec) => {
         if (tabId) {
           recordingTabs.delete(tabId);
         }
 
-        // If this is the final recording (user clicked stop), clear the session
         if (isFinalRecording) {
+          const finalSessionId = sessionId;
+
           currentSessionId = null;
           isRecording = false;
           currentRecordingTabId = null;
           recordingTabs.clear();
+
+          try {
+            const token =
+              "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ0cnVlbGF3OmRlbW8tdXNlciIsImV4cCI6MTc3ODUxNDM3NSwibmJmIjoxNzYyOTYyMzc1LCJpYXQiOjE3NjI5NjIzNzV9.f7p2T1KEi47GYR3GI8TZDM2DXDkdIPUSF2b1J6PDSI7C2eliebzjR35UxdytFSYp_wZk3dBGMXvfsaUcc68uw87XKJKf_jzJIG6hNPH6V4jLVWrmOGDXCuD0w4yeFuJgCXpn3WwFVIbzXDryAhXcYxlhA5ImFTRk5PQ6ToAWWLRMufuWIGixGC_gn8fM1say48Hi_o0IAIDSdptbevOBzn_enlpmQ4OB7h5KWxVb2X3GRrUoiBqQoXd6a_Ufjk_ROWmFCf3Ud1xx3Hfy4KwjVXygI93gR5QY-sFbBh6czBzFJMkVm_oSlqCbPbCU6k3YFm4wB6EckBTk1wPRoZvrPA";
+            if (token) {
+              const sessionRecordings = await getRecordingsBySession(
+                finalSessionId
+              );
+
+              const allEvents = [];
+              for (const recording of sessionRecordings) {
+                if (recording.events && Array.isArray(recording.events)) {
+                  allEvents.push(...recording.events);
+                }
+              }
+
+              if (allEvents.length > 0) {
+                await uploadRecordingData(allEvents, finalSessionId, token);
+              } else {
+                console.warn(
+                  `No events to upload for session ${finalSessionId}`
+                );
+              }
+            } else {
+              console.warn("No token found, skipping upload");
+            }
+          } catch (uploadError) {
+            console.error("Error uploading recording data:", uploadError);
+          }
         }
 
         sendResponse({ success: true, id: rec.id, sessionId: rec.sessionId });
@@ -197,8 +284,22 @@ chrome.tabs.onActivated.addListener(async (activeInfo) => {
 // Listen to tab updates (when tab URL changes, page loads, etc)
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === "complete") {
-    // If recording is active and this is a newly loaded tab, start recording on it
-    if (isRecording && tabId !== currentRecordingTabId) {
+    console.log("Tab updated:", tabId, "URL:", tab.url);
+
+    // If recording is active, handle both cases:
+    // 1. Current recording tab navigated to new URL (page reload/navigation)
+    // 2. A different tab loaded during recording session
+    if (isRecording) {
+      const isCurrentTab = tabId === currentRecordingTabId;
+      const wasRecording = recordingTabs.has(tabId);
+
+      console.log("Tab status:", {
+        tabId,
+        isCurrentTab,
+        wasRecording,
+        currentRecordingTabId,
+      });
+
       // Check if it's a valid URL
       if (
         tab.url &&
@@ -206,16 +307,23 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         !tab.url.startsWith("chrome-extension://") &&
         !tab.url.startsWith("about:")
       ) {
-        // Wait a bit for content script to be ready
-        setTimeout(async () => {
-          try {
-            await chrome.tabs.sendMessage(tabId, {
-              action: "start-recording-auto",
-            });
-          } catch (error) {
-            console.log("Could not start recording on new tab:", error.message);
-          }
-        }, 1000);
+        // If this is the current recording tab or any tab during active recording,
+        // restart recording after page load
+        if (isCurrentTab || wasRecording || tabId !== currentRecordingTabId) {
+          console.log("Starting/restarting recording on tab:", tabId);
+
+          // Wait a bit for content script to be ready
+          setTimeout(async () => {
+            try {
+              await chrome.tabs.sendMessage(tabId, {
+                action: "start-recording-auto",
+              });
+              console.log("Auto-started recording on tab:", tabId);
+            } catch (error) {
+              console.log("Could not start recording on tab:", error.message);
+            }
+          }, 1000);
+        }
       }
     }
   }
