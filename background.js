@@ -20,6 +20,11 @@ initDB()
   .then(() => console.log("Recording DB initialized in background"))
   .catch((e) => console.error("DB init error", e));
 
+// Open side panel when extension icon is clicked
+chrome.action.onClicked.addListener((tab) => {
+  chrome.sidePanel.open({ windowId: tab.windowId });
+});
+
 // Inject content script into all existing tabs on install/update
 async function injectContentScriptIntoAllTabs() {
   try {

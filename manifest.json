@@ -4,12 +4,12 @@
   "version": "1.1",
   "manifest_version": 3,
   "action": {
-    "default_popup": "popup/popup.html"
+    "default_title": "Open Side Panel"
   },
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["storage", "scripting", "activeTab", "tabs"],
+  "permissions": ["storage", "scripting", "activeTab", "tabs", "sidePanel"],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
@@ -32,5 +32,8 @@
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "side_panel": {
+    "default_path": "popup/popup.html"
   }
 }
